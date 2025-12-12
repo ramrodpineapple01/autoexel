@@ -8,13 +8,13 @@ let directoryData = [];
 async function loadDirectory() {
     try {
         const tbody = document.getElementById('directory-tbody');
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="loading">Loading...</td></tr>';
 
         directoryData = await apiCall('/api/directory');
         renderDirectory(directoryData);
     } catch (error) {
         const tbody = document.getElementById('directory-tbody');
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">Error loading directory</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="loading">Error loading directory</td></tr>';
     }
 }
 
@@ -23,7 +23,7 @@ function renderDirectory(data) {
     const tbody = document.getElementById('directory-tbody');
     
     if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">No entries found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="loading">No entries found</td></tr>';
         return;
     }
 
@@ -34,8 +34,10 @@ function renderDirectory(data) {
             <td>${entry.Phone || ''}</td>
             <td>${entry.Address || ''}</td>
             <td>${entry.City || ''}</td>
+            <td>${entry.State || ''}</td>
             <td>${entry.Zip || ''}</td>
             <td>${entry.Email || ''}</td>
+            <td>${entry.Lot_Number || ''}</td>
             <td>
                 <button class="btn btn-sm btn-secondary" onclick="editDirectoryEntry(${entry.ID})">Edit</button>
                 <button class="btn btn-sm btn-danger" onclick="deleteDirectoryEntry(${entry.ID})">Delete</button>
@@ -119,8 +121,10 @@ function openAddDirectoryModal() {
     document.getElementById('phone').value = '';
     document.getElementById('address').value = '';
     document.getElementById('city').value = '';
+    document.getElementById('state').value = '';
     document.getElementById('zip').value = '';
     document.getElementById('email').value = '';
+    document.getElementById('lot-number').value = '';
     openModal('directory-modal');
 }
 
@@ -135,8 +139,10 @@ async function editDirectoryEntry(id) {
     document.getElementById('phone').value = entry.Phone || '';
     document.getElementById('address').value = entry.Address || '';
     document.getElementById('city').value = entry.City || '';
+    document.getElementById('state').value = entry.State || '';
     document.getElementById('zip').value = entry.Zip || '';
     document.getElementById('email').value = entry.Email || '';
+    document.getElementById('lot-number').value = entry.Lot_Number || '';
     openModal('directory-modal');
 }
 
@@ -148,8 +154,10 @@ async function saveDirectoryEntry() {
         Phone: document.getElementById('phone').value,
         Address: document.getElementById('address').value,
         City: document.getElementById('city').value,
+        State: document.getElementById('state').value,
         Zip: document.getElementById('zip').value,
-        Email: document.getElementById('email').value
+        Email: document.getElementById('email').value,
+        Lot_Number: document.getElementById('lot-number').value
     };
 
     try {

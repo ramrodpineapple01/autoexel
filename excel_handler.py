@@ -36,7 +36,7 @@ class ExcelHandler:
         # Sheet 1: Directory
         if 'Directory' not in self.wb.sheetnames:
             ws = self.wb.create_sheet('Directory')
-            headers = ['ID', 'Owner', 'Phone', 'Address', 'City', 'Zip', 'Email']
+            headers = ['ID', 'Owner', 'Phone', 'Address', 'City', 'State', 'Zip', 'Email', 'Lot_Number']
             ws.append(headers)
             self.format_headers(ws)
         
@@ -144,6 +144,30 @@ class ExcelHandler:
         # Find the row
         for idx, row in enumerate(ws.iter_rows(min_row=2), start=2):
             if sheet_name == 'Directory' and row[0].value == row_id:
+                for header, value in data.items():
+                    if header in headers:
+                        col_idx = headers.index(header)
+                        ws.cell(row=idx, column=col_idx + 1, value=value)
+                self.wb.save(self.file_path)
+                return True
+        
+        return False
+    
+    def update_lot_owner(self, surname, firstname, data):
+        """Update a lot owner by surname and firstname"""
+        if 'Lot_Owners' not in self.wb.sheetnames:
+            return False
+        
+        ws = self.wb['Lot_Owners']
+        headers = [cell.value for cell in ws[1]]
+        
+        # Find the row matching surname and firstname
+        for idx, row in enumerate(ws.iter_rows(min_row=2), start=2):
+            row_surname = row[0].value if row[0].value else ''
+            row_firstname = row[1].value if len(row) > 1 and row[1].value else ''
+            
+            if str(row_surname).strip() == str(surname).strip() and str(row_firstname).strip() == str(firstname).strip():
+                # Update the row
                 for header, value in data.items():
                     if header in headers:
                         col_idx = headers.index(header)

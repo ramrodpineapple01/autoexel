@@ -19,22 +19,64 @@ A standalone local web application for managing community directory information,
 
 ## Installation
 
-1. Install Python dependencies:
+### Quick Setup (Recommended)
+
+Run the setup script:
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+### Manual Setup
+
+1. Create a virtual environment (required on Linux systems):
+```bash
+python3 -m venv venv
+```
+
+2. Activate the virtual environment:
+```bash
+# On Linux/Mac:
+source venv/bin/activate
+
+# On Windows:
+venv\Scripts\activate
+```
+
+3. Install Python dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Running the Application
 
-1. Start the Flask server:
+### Quick Start (After Setup)
+
+Simply run:
 ```bash
-python app.py
+./run.sh
 ```
 
-2. Open your web browser and navigate to:
+### Manual Start
+
+1. Make sure the virtual environment is activated:
+```bash
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate     # Windows
+```
+
+2. Start the Flask server:
+```bash
+python3 app.py
+```
+
+3. Open your web browser and navigate to:
 ```
 http://localhost:5000
 ```
+
+**Note:** On some systems, you may need to use `python3` instead of `python`. The application will automatically create the necessary Excel file (`data/community_data.xlsx`) on first run.
 
 The application will automatically create the necessary Excel file (`data/community_data.xlsx`) on first run.
 
@@ -81,8 +123,8 @@ The application will automatically create the necessary Excel file (`data/commun
 
 ### Directory Template
 ```csv
-Owner,Phone,Address,City,Zip,Email
-John Doe,555-1234,123 Main St,City,12345,john@example.com
+Owner,Phone,Address,City,State,Zip,Email,Lot_Number
+John Doe,555-1234,123 Main St,City,CA,12345,john@example.com,1
 ```
 
 ### Lot Owners Template
@@ -119,6 +161,8 @@ autoexel/
 
 ## Troubleshooting
 
-- **Port already in use**: Change the port in `app.py` (last line)
+- **"externally-managed-environment" error**: This occurs on modern Linux systems. Use the virtual environment setup (see Installation section above)
+- **Port already in use**: Change the port in `app.py` (last line: `app.run(debug=True, host='0.0.0.0', port=5000)`)
 - **Excel file locked**: Make sure the Excel file is not open in another program
 - **Map not loading**: Ensure `Picture1.jpg` is copied to `static/img/lot_map_bg.jpg`
+- **Command 'python' not found**: Use `python3` instead of `python` on Linux systems

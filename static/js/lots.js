@@ -52,9 +52,9 @@ async function updateLotNumbers(index) {
     // Update local data
     owner.Lot_Numbers = lotNumbers;
 
-    // Save to backend (we'll need to add an update endpoint or use add which should handle updates)
+    // Save to backend (POST endpoint will update if entry exists, otherwise add new)
     try {
-        await apiCall('/api/lot-owners', {
+        const result = await apiCall('/api/lot-owners', {
             method: 'POST',
             body: JSON.stringify({
                 Surname: owner.Surname,
@@ -62,8 +62,10 @@ async function updateLotNumbers(index) {
                 Lot_Numbers: lotNumbers
             })
         });
+        // Silently update - no message needed for every keystroke
     } catch (error) {
         console.error('Error updating lot numbers:', error);
+        showMessage('Error updating lot numbers', 'error');
     }
 }
 

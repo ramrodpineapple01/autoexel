@@ -87,42 +87,104 @@ def bulk_import_directory():
         return jsonify({'success': False, 'message': 'No file selected'}), 400
     
     try:
-        # Read CSV
-        stream = file.stream.read().decode('utf-8')
-        csv_reader = csv.DictReader(stream.splitlines())
+        # Read CSV - try multiple encodings
+        file_content = file.stream.read()
+        stream = None
         
-        required_headers = ['Owner', 'Phone', 'Address', 'City', 'Zip', 'Email']
-        headers = csv_reader.fieldnames
+        # Try UTF-8 first, then fallback to latin-1 and utf-8-sig (BOM)
+        for encoding in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
+            try:
+                stream = file_content.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
         
-        if not headers or not all(h in headers for h in required_headers):
+        if stream is None:
             return jsonify({
                 'success': False,
-                'message': f'CSV must contain columns: {", ".join(required_headers)}'
+                'message': 'Could not decode CSV file. Please ensure the file is saved as UTF-8 or CSV format.'
             }), 400
         
+        # Parse CSV
+        csv_reader = csv.DictReader(stream.splitlines())
+        
+        required_headers = ['Owner', 'Phone', 'Address', 'City', 'State', 'Zip', 'Email', 'Lot_Number']
+        headers = csv_reader.fieldnames
+        
+        if not headers:
+            return jsonify({
+                'success': False,
+                'message': 'CSV file appears to be empty or invalid. Please check the file format.'
+            }), 400
+        
+        # Check for required headers (case-insensitive)
+        headers_lower = [h.strip().lower() if h else '' for h in headers]
+        required_lower = [h.lower() for h in required_headers]
+        
+        missing_headers = []
+        for req_header in required_lower:
+            if req_header not in headers_lower:
+                missing_headers.append(req_header)
+        
+        if missing_headers:
+            return jsonify({
+                'success': False,
+                'message': f'CSV is missing required columns: {", ".join(missing_headers)}. Found columns: {", ".join(headers)}'
+            }), 400
+        
+        # Create header mapping (case-insensitive)
+        header_map = {}
+        for req_header in required_headers:
+            for idx, header in enumerate(headers):
+                if header and header.strip().lower() == req_header.lower():
+                    header_map[req_header] = header
+                    break
+        
         imported = 0
-        for row in csv_reader:
+        errors = []
+        
+        for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 (row 1 is header)
             # Skip empty rows
-            if not any(row.values()):
+            if not any(str(v).strip() if v else '' for v in row.values()):
                 continue
             
-            excel_handler.add_row('Directory', {
-                'Owner': row.get('Owner', ''),
-                'Phone': row.get('Phone', ''),
-                'Address': row.get('Address', ''),
-                'City': row.get('City', ''),
-                'Zip': row.get('Zip', ''),
-                'Email': row.get('Email', '')
-            })
-            imported += 1
+            try:
+                excel_handler.add_row('Directory', {
+                    'Owner': row.get(header_map.get('Owner', 'Owner'), ''),
+                    'Phone': row.get(header_map.get('Phone', 'Phone'), ''),
+                    'Address': row.get(header_map.get('Address', 'Address'), ''),
+                    'City': row.get(header_map.get('City', 'City'), ''),
+                    'State': row.get(header_map.get('State', 'State'), ''),
+                    'Zip': row.get(header_map.get('Zip', 'Zip'), ''),
+                    'Email': row.get(header_map.get('Email', 'Email'), ''),
+                    'Lot_Number': row.get(header_map.get('Lot_Number', 'Lot_Number'), '')
+                })
+                imported += 1
+            except Exception as e:
+                errors.append(f'Row {row_num}: {str(e)}')
+        
+        if errors:
+            return jsonify({
+                'success': False,
+                'message': f'Imported {imported} entries, but encountered errors: {"; ".join(errors[:5])}'
+            }), 400
         
         return jsonify({
             'success': True,
             'message': f'Successfully imported {imported} entries'
         })
     
+    except csv.Error as e:
+        return jsonify({
+            'success': False,
+            'message': f'CSV parsing error: {str(e)}. Please ensure the file is a valid CSV format.'
+        }), 400
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 400
+        import traceback
+        return jsonify({
+            'success': False,
+            'message': f'Import error: {str(e)}'
+        }), 400
 
 
 @app.route('/api/directory/template', methods=['GET'])
@@ -134,8 +196,8 @@ def get_directory_template():
     # Create template file
     with open(template_path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow(['Owner', 'Phone', 'Address', 'City', 'Zip', 'Email'])
-        writer.writerow(['John Doe', '555-1234', '123 Main St', 'City', '12345', 'john@example.com'])
+        writer.writerow(['Owner', 'Phone', 'Address', 'City', 'State', 'Zip', 'Email', 'Lot_Number'])
+        writer.writerow(['John Doe', '555-1234', '123 Main St', 'City', 'CA', '12345', 'john@example.com', '1'])
     
     return send_file(template_path, as_attachment=True, download_name='directory_template.csv')
 
@@ -226,6 +288,21 @@ def get_lot_owners():
 def add_lot_owner():
     """Add or update a lot owner"""
     data = request.json
+    surname = data.get('Surname', '').strip()
+    firstname = data.get('FirstName', '').strip()
+    
+    # Check if lot owner already exists
+    if surname and firstname:
+        # Try to update existing entry
+        update_data = {
+            'Surname': surname,
+            'FirstName': firstname,
+            'Lot_Numbers': data.get('Lot_Numbers', '')
+        }
+        if excel_handler.update_lot_owner(surname, firstname, update_data):
+            return jsonify({'success': True, 'message': 'Lot owner updated successfully'})
+    
+    # If not found, add as new row
     success = excel_handler.add_row('Lot_Owners', data)
     if success:
         return jsonify({'success': True, 'message': 'Lot owner added successfully'})
@@ -243,37 +320,113 @@ def bulk_import_lot_owners():
         return jsonify({'success': False, 'message': 'No file selected'}), 400
     
     try:
-        stream = file.stream.read().decode('utf-8')
+        # Read CSV - try multiple encodings
+        file_content = file.stream.read()
+        stream = None
+        
+        # Try UTF-8 first, then fallback to latin-1 and utf-8-sig (BOM)
+        for encoding in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
+            try:
+                stream = file_content.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        
+        if stream is None:
+            return jsonify({
+                'success': False,
+                'message': 'Could not decode CSV file. Please ensure the file is saved as UTF-8 or CSV format.'
+            }), 400
+        
+        # Parse CSV
         csv_reader = csv.DictReader(stream.splitlines())
         
         required_headers = ['Surname', 'FirstName', 'Lot_Numbers']
         headers = csv_reader.fieldnames
         
-        if not headers or not all(h in headers for h in required_headers):
+        if not headers:
             return jsonify({
                 'success': False,
-                'message': f'CSV must contain columns: {", ".join(required_headers)}'
+                'message': 'CSV file appears to be empty or invalid. Please check the file format.'
             }), 400
         
+        # Check for required headers (case-insensitive)
+        headers_lower = [h.strip().lower() if h else '' for h in headers]
+        required_lower = [h.lower() for h in required_headers]
+        
+        missing_headers = []
+        for req_header in required_lower:
+            if req_header not in headers_lower:
+                missing_headers.append(req_header)
+        
+        if missing_headers:
+            return jsonify({
+                'success': False,
+                'message': f'CSV is missing required columns: {", ".join(missing_headers)}. Found columns: {", ".join(headers)}'
+            }), 400
+        
+        # Create header mapping (case-insensitive)
+        header_map = {}
+        for req_header in required_headers:
+            for idx, header in enumerate(headers):
+                if header and header.strip().lower() == req_header.lower():
+                    header_map[req_header] = header
+                    break
+        
         imported = 0
-        for row in csv_reader:
-            if not any(row.values()):
+        errors = []
+        
+        for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 (row 1 is header)
+            # Skip empty rows
+            if not any(str(v).strip() if v else '' for v in row.values()):
                 continue
             
-            excel_handler.add_row('Lot_Owners', {
-                'Surname': row.get('Surname', ''),
-                'FirstName': row.get('FirstName', ''),
-                'Lot_Numbers': row.get('Lot_Numbers', '')
-            })
-            imported += 1
+            try:
+                surname = row.get(header_map.get('Surname', 'Surname'), '').strip()
+                firstname = row.get(header_map.get('FirstName', 'FirstName'), '').strip()
+                lot_numbers = row.get(header_map.get('Lot_Numbers', 'Lot_Numbers'), '').strip()
+                
+                # Use update_lot_owner to avoid duplicates
+                if surname and firstname:
+                    update_data = {
+                        'Surname': surname,
+                        'FirstName': firstname,
+                        'Lot_Numbers': lot_numbers
+                    }
+                    if not excel_handler.update_lot_owner(surname, firstname, update_data):
+                        # If update failed, add as new row
+                        excel_handler.add_row('Lot_Owners', update_data)
+                else:
+                    excel_handler.add_row('Lot_Owners', {
+                        'Surname': surname,
+                        'FirstName': firstname,
+                        'Lot_Numbers': lot_numbers
+                    })
+                imported += 1
+            except Exception as e:
+                errors.append(f'Row {row_num}: {str(e)}')
+        
+        if errors:
+            return jsonify({
+                'success': False,
+                'message': f'Imported {imported} entries, but encountered errors: {"; ".join(errors[:5])}'
+            }), 400
         
         return jsonify({
             'success': True,
             'message': f'Successfully imported {imported} lot owners'
         })
     
+    except csv.Error as e:
+        return jsonify({
+            'success': False,
+            'message': f'CSV parsing error: {str(e)}. Please ensure the file is a valid CSV format.'
+        }), 400
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 400
+        return jsonify({
+            'success': False,
+            'message': f'Import error: {str(e)}'
+        }), 400
 
 
 @app.route('/api/lot-owners/template', methods=['GET'])
@@ -295,13 +448,22 @@ def sync_lot_owners_from_directory():
     """Sync lot owners from directory (extract surname, firstname)"""
     directory = excel_handler.get_sheet_data('Directory')
     
-    # Clear existing lot owners (keep header row)
+    # Clear existing lot owners (keep header row only)
     ws = excel_handler.wb['Lot_Owners']
-    # Delete all rows except header (row 1)
+    # Delete all data rows (rows 2 and onwards), keeping header row 1
     if ws.max_row > 1:
         ws.delete_rows(2, ws.max_row)
     
-    # Extract names from directory
+    # Ensure header row exists and is correct (only recreate if missing or wrong)
+    if ws.max_row == 0 or (ws.max_row >= 1 and ws.cell(1, 1).value != 'Surname'):
+        # Header doesn't exist or is wrong, recreate it
+        headers = ['Surname', 'FirstName', 'Lot_Numbers']
+        for col_idx, header in enumerate(headers, start=1):
+            ws.cell(1, col_idx, value=header)
+        excel_handler.format_headers(ws)
+        excel_handler.wb.save(excel_handler.file_path)
+    
+    # Extract names from directory and add as data rows (starting from row 2)
     for entry in directory:
         owner = entry.get('Owner', '').strip()
         if owner:
@@ -319,6 +481,7 @@ def sync_lot_owners_from_directory():
                     surname = owner
                     firstname = ''
             
+            # Add row using add_row which will append after existing rows (starting at row 2)
             excel_handler.add_row('Lot_Owners', {
                 'Surname': surname,
                 'FirstName': firstname,
