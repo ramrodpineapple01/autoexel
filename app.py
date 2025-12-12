@@ -295,13 +295,11 @@ def sync_lot_owners_from_directory():
     """Sync lot owners from directory (extract surname, firstname)"""
     directory = excel_handler.get_sheet_data('Directory')
     
-    # Clear existing lot owners
+    # Clear existing lot owners (keep header row)
     ws = excel_handler.wb['Lot_Owners']
-    for idx in range(ws.max_row, 1, -1):
-        ws.delete_rows(idx)
-    
-    # Add header back
-    ws.append(['Surname', 'FirstName', 'Lot_Numbers'])
+    # Delete all rows except header (row 1)
+    if ws.max_row > 1:
+        ws.delete_rows(2, ws.max_row)
     
     # Extract names from directory
     for entry in directory:
@@ -328,7 +326,7 @@ def sync_lot_owners_from_directory():
             })
     
     excel_handler.wb.save(excel_handler.file_path)
-    return jsonify({'success': True, 'message': 'Lot owners synced from directory'})
+    return jsonify({'success': True, 'message': f'Lot owners synced from directory ({len(directory)} entries)'})
 
 
 # ==================== Lot Map API ====================
@@ -372,14 +370,6 @@ def get_lot_map_region(lot_number):
     if region:
         return jsonify(region)
     return jsonify({'error': 'Region not found'}), 404
-
-
-# ==================== Static Files ====================
-
-@app.route('/static/img/<filename>')
-def serve_image(filename):
-    """Serve images from static/img directory"""
-    return send_from_directory('static/img', filename)
 
 
 if __name__ == '__main__':
