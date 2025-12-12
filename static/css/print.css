@@ -1,0 +1,154 @@
+/* Print Styles for WCCSA Community Directory Management Tool */
+
+@media print {
+    * {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+    }
+
+    body {
+        font-size: 10pt;
+        line-height: 1.4;
+    }
+
+    .container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    header {
+        background: white !important;
+        color: black !important;
+        border-bottom: 2px solid black;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    header h1 {
+        font-size: 18pt;
+        margin: 0;
+    }
+
+    /* Hide navigation and buttons */
+    .tabs,
+    .actions,
+    .map-controls,
+    .editor-panel,
+    .close,
+    button,
+    .search-box {
+        display: none !important;
+    }
+
+    /* Show only active tab */
+    .tab-content {
+        display: none !important;
+    }
+
+    .tab-content.active {
+        display: block !important;
+    }
+
+    /* Tables */
+    .table-container {
+        box-shadow: none;
+        border: 1px solid black;
+    }
+
+    .data-table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    .data-table th,
+    .data-table td {
+        border: 1px solid black;
+        padding: 6px;
+        font-size: 9pt;
+    }
+
+    .data-table th {
+        background: #f0f0f0 !important;
+        font-weight: bold;
+    }
+
+    .data-table tbody tr {
+        page-break-inside: avoid;
+    }
+
+    /* Board of Directors Cards */
+    .bod-cards {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        page-break-inside: avoid;
+    }
+
+    .bod-card {
+        border: 1px solid black;
+        padding: 10px;
+        page-break-inside: avoid;
+    }
+
+    .bod-card h3 {
+        font-size: 11pt;
+        margin-bottom: 8px;
+    }
+
+    .bod-card input,
+    .bod-card textarea {
+        border: none;
+        padding: 2px;
+        font-size: 9pt;
+    }
+
+    /* Committees */
+    .committee-section {
+        border: 1px solid black;
+        padding: 10px;
+        margin-bottom: 15px;
+        page-break-inside: avoid;
+    }
+
+    .committee-header h3 {
+        font-size: 11pt;
+    }
+
+    .member-item {
+        border-bottom: 1px solid #ccc;
+        padding: 5px;
+    }
+
+    /* Lot Map */
+    .map-container {
+        border: 1px solid black;
+        page-break-inside: avoid;
+    }
+
+    #lot-map-canvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Page breaks */
+    .section-header {
+        page-break-after: avoid;
+    }
+
+    h2 {
+        page-break-after: avoid;
+        font-size: 14pt;
+    }
+
+    /* Remove modals */
+    .modal {
+        display: none !important;
+    }
+
+    /* Ensure proper page breaks */
+    @page {
+        margin: 1cm;
+    }
+}
+
